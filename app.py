@@ -2,75 +2,62 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 1. Configuración de la página (esto es lo primero que ve el navegador)
+# 1. Configuración de la página
 st.set_page_config(page_title="Gestión de Proyectos", layout="wide")
 
-# 2. El enlace que me pasaste (Ya integrado)
+# 2. Tu enlace de Google Sheets
 SHEET_URL = "https://google.com"
 
-# 3. Función para leer los datos
-@st.cache_data # Esto hace que la app sea rápida y no descargue todo cada segundo
+@st.cache_data
 def cargar_datos():
-    # Leemos el CSV desde tu enlace
     df = pd.read_csv(SHEET_URL)
-    
-    # Limpieza básica: Aseguramos que la columna FECHA sea entendida como fecha por Python
-    if 'FECHA' in df.columns:
-        df['FECHA'] = pd.to_datetime(df['FECHA'], errors='coerce')
-    
+    # Ajustamos los nombres a como están en tu imagen
+    if 'Fecha' in df.columns:
+        df['Fecha'] = pd.to_datetime(df['Fecha'], dayfirst=True, errors='coerce')
     return df
 
-# 4. Título de la aplicación
-st.title("📊 Panel de Control: Proyectos y Proveedores")
-st.markdown("Datos extraídos en tiempo real desde Google Sheets")
+st.title("📊 Panel de Control: Gastos y Proyectos")
 
 try:
-    # Cargamos los datos en una variable llamada 'df'
     df = cargar_datos()
 
-    # --- BARRA LATERAL (FILTROS) ---
-    st.sidebar.header("Filtros de Búsqueda")
+    # --- FILTROS LATERALES (Ajustados a tus nombres reales) ---
+    st.sidebar.header("Filtros")
     
-    # Creamos un filtro por PROYECTO
-    proyectos_disponibles = df["PROYECTO"].unique()
-    seleccion_proy = st.sidebar.multiselect("Filtrar por Proyecto:", proyectos_disponibles, default=proyectos_disponibles)
+    # Filtro por Proyecto
+    proyectos = df["Proyecto"].unique()
+    sel_proy = st.sidebar.multiselect("Selecciona Proyecto:", proyectos, default=proyectos)
 
-    # Creamos un filtro por PROOVEDOR
-    proveedores_disponibles = df["PROOVEDOR"].unique()
-    seleccion_prov = st.sidebar.multiselect("Filtrar por Proveedor:", proveedores_disponibles, default=proveedores_disponibles)
+    # Filtro por PROOVEDOR (En tu imagen está en MAYÚSCULAS)
+    proveedores = df["PROOVEDOR"].unique()
+    sel_prov = st.sidebar.multiselect("Selecciona Proveedor:", proveedores, default=proveedores)
 
-    # Aplicamos los filtros a los datos
-    df_filtrado = df[df["PROYECTO"].isin(seleccion_proy) & df["PROOVEDOR"].isin(seleccion_prov)]
+    # Filtrado de datos
+    df_filtrado = df[df["Proyecto"].isin(sel_proy) & df["PROOVEDOR"].isin(sel_prov)]
 
-    # --- CUADROS DE RESUMEN (MÉTRICAS) ---
+    # --- MÉTRICAS ---
     c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Total Recibido", f"${df_filtrado['RECIBIDO'].sum():,.2f}")
-    with c2:
-        st.metric("Costo Total", f"${df_filtrado['COSTO'].sum():,.2f}")
-    with c3:
-        # Calculamos la diferencia entre Precio y Costo
-        utilidad = df_filtrado['PRECIO'].sum() - df_filtrado['COSTO'].sum()
-        st.metric("Margen (Precio - Costo)", f"${utilidad:,.2f}")
+    c1.metric("Costo Total", f"${df_filtrado['COSTO'].sum():,.2f}")
+    c2.metric("Total Recibido (Registros)", len(df_filtrado))
+    c3.metric("Stock Promedio", f"{df_filtrado['STOCK'].mean():.2f}")
 
     # --- GRÁFICOS ---
-    st.divider() # Una línea para separar
-    
-    col_izq, col_der = st.columns(2)
+    st.divider()
+    col_a, col_b = st.columns(2)
 
-    with col_izq:
-        st.subheader("Inversión por Proyecto")
-        fig1 = px.bar(df_filtrado, x="PROYECTO", y="COSTO", color="PROYECTO", text_auto=True)
+    with col_a:
+        st.subheader("Costo por Proyecto")
+        fig1 = px.bar(df_filtrado, x="Proyecto", y="COSTO", color="Proyecto")
         st.plotly_chart(fig1, use_container_width=True)
 
-    with col_der:
-        st.subheader("Distribución por Proveedor")
+    with col_b:
+        st.subheader("Inversión por Proveedor")
         fig2 = px.pie(df_filtrado, values="COSTO", names="PROOVEDOR")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- TABLA FINAL ---
-    st.subheader("Listado Detallado")
-    st.dataframe(df_filtrado, use_container_width=True)
+    # --- TABLA ---
+    st.subheader("Detalle de la Hoja de Cálculo")
+    st.dataframe(df_filtrado)
 
 except Exception as e:
-    st.error(f"Hubo un problema al leer los datos. Error: {e}")
+    st.error(f"Error: Revisa que los nombres de las columnas coincidan. Detalle: {e}")
